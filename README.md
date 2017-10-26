@@ -2,13 +2,13 @@
 
 Rubric Point | Result
 ------------ | ------------
-1. Compiling - Code compiles using `cmake` and `make`. | YES
-2. Accuracy - Algorithm runs against "obj_pose-laser-radar-synthetic-input.txt. px, py, vx, and vy RMSE should be less than or equal to the values [.09, .10, .40, .30] | Results:  [   ,   ,   ,  ]
-3. Correct Algorithm - follows genral processing flow |      
-4. KF algorithem handles first measurements |  
-5. KF first predicts then updates | 
-6. KF handles radar and lidar | 
-7. Code Efficiency | 
+Compiling - Code compiles using `cmake` and `make`. | YES
+Accuracy - Algorithm runs against "obj_pose-laser-radar-synthetic-input.txt. px, py, vx, and vy RMSE should be less than or equal to the values [.09, .10, .40, .30] | Results:  [   ,   ,   ,  ]
+Correct Algorithm - follows genral processing flow |      
+KF algorithem handles first measurements |  
+KF first predicts then updates | 
+KF handles radar and lidar | 
+Code Efficiency | 
 
 
 
