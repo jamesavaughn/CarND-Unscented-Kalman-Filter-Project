@@ -1,4 +1,5 @@
 #include "ukf.h"
+#include "tools.h"
 #include "Eigen/Dense"
 #include <iostream>
 
@@ -8,8 +9,8 @@ using Eigen::VectorXd;
 using std::vector;
 
 /**
- * Initializes Unscented Kalman filter
- */
+* Initializes Unscented Kalman filter
+*/
 UKF::UKF() {
   use_laser_ = true;   // if this is false, laser measurements will be ignored (except during init)
   use_radar_ = true;   // if this is false, radar measurements will be ignored (except during init)
@@ -202,11 +203,12 @@ void UKF::Prediction(double delta_t) {
   x_.fill(0.0); // initialize with zero
   for (int i = 1; i < 2 * n_aug_+1; i++) {
     x_ = x_ + weights_(i) * Xsig_pred_.col(i);
+  }
 
   // set predict state covariance matrix
   P_.fill(0.0); // initialize with zero
   for (int i = 1; i < 2 * n_aug_+1; i++) {
-    VectorXd x_diff = Xsig_pred_.col(i) - x;
+    VectorXd x_diff = Xsig_pred_.col(i) - x_;
     while (x_diff(3) > M_PI) x_diff(3) -= 2. * M_PI;
     while (x_diff(3) > M_PI) x_diff(3) += 2. * M_PI;
     
@@ -231,8 +233,7 @@ void UKF::UpdateLidar(MeasurementPackage meas_package) {
   int n_z = 2;                                   // set measurement dimensino for lidar (2D)
   MatrixXd Zsig = MatrixXd(n_z, 2 * n_aug_ + 1); // create matix for sigma points in measurement space
   
-  for (int i = 0; i < 2 * n_aug_ + 1; i++) // transform sigma points into measurement space
-  {
+  for (int i = 0; i < 2 * n_aug_ + 1; i++) { // transform sigma points into measurement space
     double P_x = Xsig_pred_(0, i); // extract x values for readibility
     double P_y = Xsig_pred_(1, i); // extract y values for readibility
     
@@ -243,40 +244,36 @@ void UKF::UpdateLidar(MeasurementPackage meas_package) {
   // mean predicted measurement
   VectorXd z_pred = VectorXd(n_z);
   z_pred.fill(0.0);
-  for (int i = 0; i < 2 * n_aug_+1; i++){
+  for (int i = 0; i < 2 * n_aug_+1; i++) {
     z_pred = z_pred + weights_(i) * Zsig.col(i);
   }
 
   MatrixXd S = MatrixXd(n_z, n_z); // measurement covariance matrix S
   S.fill(0.0);                     // initialize S matrix with zeros
-  for (int i = 0; i < 2 * n_aug_ + 1; i++)
-  {
-    VectorXd z_diff = Zsig.col(i) - z_pred;            // residual calculation
+  for (int i = 0; i < 2 * n_aug_ + 1; i++) {
+    VectorXd z_diff = Zsig.col(i) - z_pred;         // residual calculation
     S = S + weights_(i) * z_diff * z_diff.transpose(); // measurement covariance matrix
   }
 
   // calculate noise covariance matrix R
   MatrixXd R = MatrixXd(n_z, n_z);
   R << std_laspx_*std_laspx_, 0,
-       0, std_laspy_*std_laspy_;
-  
+       0, std_laspy_*std_laspy_; 
   S = S + R; // add measurement noise covariance matrix
-
-  
 
 /*
  * UKF UPDATE FOR LIDAR
  */
-MatrixXd Tc = MatrixXd(n_x_, n_z); // create cross correlation matrix Tc
-Tc.fill(0.0); // initilaize with zeros
-for (int i = 0; i<2* n_aug_+1; i++) {
-  VectorXd z_diff = Zsig.col(i) - z_pred; // residual
-  VectorXd x_diff = Xsig_pred_.col(i) - x_; // state difference
-  Tc = Tc + weights_(i) * x_diff * z_diff.transpose();
-}
-
-MatrixXd K = Tc * S.inverse(); // Kalman gain K
-NIS_laser_ = z_diff.transpose() * S.inverse() * z_diff; // calculate NIS
+  MatrixXd Tc = MatrixXd(n_x_, n_z); // create cross correlation matrix Tc
+  Tc.fill(0.0); // initilaize with zeros
+  for (int i = 0; i<2* n_aug_+1; i++) {
+    VectorXd z_diff = Zsig.col(i) - z_pred; // residual
+    VectorXd x_diff = Xsig_pred_.col(i) - x_; // state difference
+    Tc = Tc + weights_(i) * x_diff * z_diff.transpose();
+  }
+  MatrixXd K = Tc * S.inverse(); // Kalman gain K
+  VectorXd z_diff = z - z_pred; // residual
+  NIS_laser_ = z_diff.transpose() * S.inverse() * z_diff; // calculate NIS
 
 x_ = x_ + K * z_diff; // update state mean
 P_ = P_ + K * S * K.transpose(); // update covariance matrix
@@ -294,14 +291,15 @@ P_ = P_ + K * S * K.transpose(); // update covariance matrix
  * Updates the state and the state covariance matrix using a radar measurement.
  * @param {MeasurementPackage} meas_package
  */
+
 void UKF::UpdateRadar(MeasurementPackage meas_package) {
  
   VectorXd z = meas_package.raw_measurements_; // extract measurement as Vector using VectorXd
   int n_z = 3; // set measurement dimension
-  MatrixXd Zsig = MatrixXd(n_z_, 2 * n_aug_+1); // create matrix for sigma points in measurement space
+  MatrixXd Zsig = MatrixXd(n_z, 2 * n_aug_+1); // create matrix for sigma points in measurement space
 
   // transform sigma points into measurement space
-  for (ing i = 0; i< 2* n_aug_+1; i++){
+  for (int i = 0; i< 2* n_aug_+1; i++){
     double P_x  = Xsig_pred_(0,i); // extract values for readibility
     double P_y  = Xsig_pred_(1,i);
     double v    = Xsig_pred_(2,i);
@@ -312,7 +310,7 @@ void UKF::UpdateRadar(MeasurementPackage meas_package) {
 
     // measurement model
     Zsig(0,i) = sqrt(P_x * P_x + P_y*P_y); // rho
-    Zsig(1,i) = atan(P_y, P_x); // phi
+    Zsig(1,i) = atan2(P_y, P_x); // phi
     Zsig(2,i) = (P_x*v1 + P_y*v2) / sqrt(P_x*P_x + P_y*P_y); // rho dot
   }
 
@@ -327,7 +325,7 @@ void UKF::UpdateRadar(MeasurementPackage meas_package) {
   MatrixXd S = MatrixXd(n_z, n_z);
   S.fill(0.0);
   for (int i = 0; i<2* n_aug_+1; i++) {
-    VectorX z_diff = Zsig.col(i) - z_pred; // residual
+    VectorXd z_diff = Zsig.col(i) - z_pred; // residual
 
     while (z_diff(1) > M_PI) z_diff(1)  -= 2.*M_PI; // angle normalization
     while (z_diff(1) < -M_PI) z_diff(1) += 2.*M_PI;
@@ -346,16 +344,17 @@ void UKF::UpdateRadar(MeasurementPackage meas_package) {
   MatrixXd Tc = MatrixXd(n_x_, n_z);
   Tc.fill(0.0);
   for (int i = 0; i< 2*n_aug_+1; i++) {
-    VecorXd z_diff = Zsig.col(k) - z_pred; // residual
+    VectorXd z_diff = Zsig.col(i) - z_pred; // residual
     while (z_diff(1) > M_PI) z_diff(1)  -= 2.*M_PI; // angle normalization
     while (z_diff(1) < -M_PI) z_diff(1) += 2.*M_PI;
 
-    VectorXd x_diff = Xsig_pred.col(i) - x_; // state difference
+    VectorXd x_diff = Xsig_pred_.col(i) - x_; // state difference
     while (x_diff(1) > M_PI) x_diff(1)  -= 2.*M_PI; // angle normalization
     while (x_diff(1) < -M_PI) x_diff(1) += 2.*M_PI;
 
     Tc = Tc + weights_(i) * x_diff * z_diff.transpose();
   }
+
 
   MatrixXd K = Tc * S.inverse(); // Kalman gain K
 
